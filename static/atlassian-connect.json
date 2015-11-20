@@ -1,0 +1,35 @@
+{{define "atlassian-connect"}}{
+    "key": "ninja.shaun.hipchat-cinema",
+    "name": "Hipchat Cinema",
+    "description": "Watch movies in hipchat!",
+    "vendor": {
+        "name": "Shaun Guth",
+        "url": "https://shaun.ninja"
+    },
+    "links": {
+        "self": "{{.BaseUrl}}/atlassian-connect.json",
+        "homepage": "{{.BaseUrl}}/atlassian-connect.json"
+    },
+    "capabilities": {
+        "hipchatApiConsumer": {
+            "scopes": [
+                "send_notification"
+            ]
+        },
+        "installable": {
+            "callbackUrl": "{{.BaseUrl}}/installable"
+        },
+        {{/* 
+        "configurable": {
+             "url": "{{.BaseUrl}}/config"
+        }, 
+        */}}
+        "webhook": {
+            "url": "{{.BaseUrl}}/hook",
+            "pattern": "^/play",
+            "event": "room_message",
+            "name": "Play Movie"
+        }
+    }
+}
+{{end}}
