@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/l8nite/hipchat-cinema/cinema"
 	"github.com/l8nite/hipchat-cinema/util"
@@ -26,6 +28,37 @@ type RoomConfig struct {
 	hc             *hipchat.Client
 	name           string
 	isMoviePlaying bool
+	stop           chan bool
+}
+
+func (r *RoomConfig) playMovie(movie *cinema.Movie) {
+	r.isMoviePlaying = true
+	r.stop = make(chan bool)
+
+	for _, scene := range movie.Scenes {
+		for _, line := range scene.Lines {
+			select {
+			case <-r.stop:
+				r.isMoviePlaying = false
+				return
+			default:
+				r.act(scene, line)
+			}
+		}
+	}
+}
+
+func (r *RoomConfig) act(scene cinema.Scene, line cinema.Line) {
+	notifRq := &hipchat.NotificationRequest{
+		Message:       line.Text,
+		MessageFormat: "html",
+		Color:         scene.Actors[line.Actor],
+		From:          line.Actor,
+	}
+
+	r.hc.Room.Notification(r.name, notifRq)
+
+	time.Sleep(line.Delay)
 }
 
 // BotContext holds the base URL that the bot is running under
@@ -119,32 +152,55 @@ func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientID := payLoad["oauth_client_id"].(string)
+	item := payLoad["item"].(map[string]interface{})
+	msgOuter := item["message"].(map[string]interface{})
+	message := msgOuter["message"].(string)
 
-	log.Printf("Received play request to clientID: %s\n", clientID)
+	// must match regex from atlassian-connect.json
+	re, err := regexp.Compile(`^/(play|stop)(?:\s+(.+?)\s*)?`)
+	res := re.FindStringSubmatch(message)
+	command := res[1]
+
+	log.Printf("Received %s request to clientID: %s\n", command, clientID)
 
 	if _, ok := c.rooms[clientID]; !ok {
 		log.Print("clientID is not registered!")
 		return
 	}
 
-	var message string
+	room := c.rooms[clientID]
 
-	if c.rooms[clientID].isMoviePlaying {
-		// TODO: allow movies to be queued
-		// TODO: remember requestor, tag them when movie starts
-		message = "Movie is already playing!"
-	} else {
-		// TODO: take movie name from request, compare to allowed movies
-		movie, err := cinema.ParseMovieFile("hackers")
-		if err != nil {
-			return
+	switch command {
+	case "stop":
+		if room.isMoviePlaying {
+			room.stop <- true
+			reply(room, "Movie stopped")
+		} else {
+			reply(room, "Movie is not playing!")
 		}
+	case "play":
+		if !room.isMoviePlaying {
+			// TODO: take movie name from request, compare to allowed movies
+			movie, err := cinema.ParseMovieFile("hackers")
+			if err != nil {
+				reply(room, "Error parsing movie file!")
+				log.Fatal(err)
+				return
+			}
 
-		message = fmt.Sprintf("Got it, now playing \"%s\"", movie.Title)
-
-		c.rooms[clientID].isMoviePlaying = true
+			reply(room, fmt.Sprintf("Got it, now playing \"%s\"", movie.Title))
+			go room.playMovie(movie)
+		} else {
+			// FEATURE: allow movies to be queued
+			// FEATURE: remember requestor, tag them when movie starts
+			reply(room, "Movie is already playing!")
+		}
+	default:
+		reply(room, fmt.Sprintf("Unknown command: %s", command))
 	}
+}
 
+func reply(r *RoomConfig, message string) {
 	notifRq := &hipchat.NotificationRequest{
 		Message:       message,
 		MessageFormat: "html",
@@ -152,14 +208,7 @@ func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
 		From:          "Hipchat Cinema",
 	}
 
-	if _, ok := c.rooms[clientID]; ok {
-		_, err = c.rooms[clientID].hc.Room.Notification(c.rooms[clientID].name, notifRq)
-		if err != nil {
-			log.Printf("Failed to notify HipChat channel:%v\n", err)
-		}
-	} else {
-		log.Printf("Room is not registered correctly:%v\n", c.rooms)
-	}
+	r.hc.Room.Notification(r.name, notifRq)
 }
 
 // Install http handler routes

@@ -26,7 +26,7 @@
         */}}
         "webhook": {
             "url": "{{.BaseUrl}}/hook",
-            "pattern": "^/play",
+            "pattern": "^/(?:play|stop)(?:\\s+.+)?$",
             "event": "room_message",
             "name": "Play Movie"
         }
