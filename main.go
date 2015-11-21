@@ -50,7 +50,7 @@ func (c *BotContext) atlassianConnect(w http.ResponseWriter, r *http.Request) {
 // POST /installable
 // Callback received when the bot is installed in a room
 func (c *BotContext) install(w http.ResponseWriter, r *http.Request) {
-	authPayload, err := util.DecodePostJSON(r, true)
+	authPayload, err := util.DecodePostJSON(r)
 
 	if err != nil {
 		log.Fatalf("Parse of installation auth data failed:%v\n", err)
@@ -92,7 +92,6 @@ func (c *BotContext) install(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to notify HipChat channel: %v\n", err)
 	}
 
-	util.PrintDump(w, r, false)
 	json.NewEncoder(w).Encode([]string{"OK"})
 }
 
@@ -120,9 +119,7 @@ func (c *BotContext) uninstall(w http.ResponseWriter, r *http.Request) {
 // POST /hook
 // Callback received when the user types a command our bot recognizes
 func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
-	util.PrintDump(w, r, true)
-
-	payLoad, err := util.DecodePostJSON(r, true)
+	payLoad, err := util.DecodePostJSON(r)
 
 	if err != nil {
 		log.Fatalf("Parsed auth data failed: %v\n", err)
