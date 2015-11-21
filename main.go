@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/l8nite/hipchat-cinema/cinema"
 	"github.com/l8nite/hipchat-cinema/util"
 
 	"github.com/gorilla/mux"
@@ -177,6 +178,11 @@ func main() {
 	c := &BotContext{
 		baseURL: *baseURL,
 		rooms:   make(map[string]*RoomConfig),
+	}
+
+	_, err := cinema.ParseMovieFile("hackers")
+	if err != nil {
+		return
 	}
 
 	log.Printf("HipChat Cinema v%s - Listening on port %v", Version, *port)
