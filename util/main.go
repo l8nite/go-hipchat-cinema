@@ -16,7 +16,7 @@ func PrintDump(w http.ResponseWriter, r *http.Request, write bool) {
 	}
 }
 
-// Decode into a ma[string]interface{} the JSON in the POST Request
+// Decode into a map[string]interface{} the JSON in the POST Request
 func DecodePostJSON(r *http.Request, logging ...bool) (map[string]interface{}, error) {
 	var err error
 	var payLoad map[string]interface{}
