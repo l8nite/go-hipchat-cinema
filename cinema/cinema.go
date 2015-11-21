@@ -4,13 +4,19 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math"
+	"math/rand"
 	"os"
 	"strings"
+	"time"
 )
+
+var colors = []string{"gray", "green", "purple", "red", "yellow"}
 
 type Line struct {
 	actor string
 	text  string
+	delay time.Duration
 }
 
 type Scene struct {
@@ -49,8 +55,14 @@ func ParseMovieFile(movieName string) (*Movie, error) {
 		}
 
 		scene := &movie.scenes[len(movie.scenes)-1]
-		scene.actors[actor] = "green" // TODO: read actors.json
-		scene.lines = append(scene.lines, Line{actor: actor, text: text})
+		scene.actors[actor] = randomColor() // TODO: read actors.json
+		wordCount := len(strings.Split(text, " "))
+		line := Line{
+			actor: actor,
+			text:  text,
+			delay: time.Duration(math.Max(float64(wordCount/4), 3)) * time.Second,
+		}
+		scene.lines = append(scene.lines, line)
 	}
 
 	/*
@@ -67,4 +79,8 @@ func ParseMovieFile(movieName string) (*Movie, error) {
 	}
 
 	return &movie, nil
+}
+
+func randomColor() string {
+	return colors[rand.Intn(len(colors))]
 }

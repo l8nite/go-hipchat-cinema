@@ -139,7 +139,7 @@ func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
 		Message:       message,
 		MessageFormat: "html",
 		Color:         "red",
-		From:          "God",
+		From:          "Dread Pirate Roberts",
 	}
 
 	if _, ok := c.rooms[clientID]; ok {
