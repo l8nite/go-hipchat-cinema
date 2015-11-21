@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -129,17 +130,26 @@ func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
 	var message string
 
 	if c.rooms[clientID].isMoviePlaying {
+		// TODO: allow movies to be queued
+		// TODO: remember requestor, tag them when movie starts
 		message = "Movie is already playing!"
 	} else {
-		message = "Enjoy the show!"
+		// TODO: take movie name from request, compare to allowed movies
+		movie, err := cinema.ParseMovieFile("hackers")
+		if err != nil {
+			return
+		}
+
+		message = fmt.Sprintf("Got it, now playing \"%s\"", movie.Title)
+
 		c.rooms[clientID].isMoviePlaying = true
 	}
 
 	notifRq := &hipchat.NotificationRequest{
 		Message:       message,
 		MessageFormat: "html",
-		Color:         "red",
-		From:          "Dread Pirate Roberts",
+		Color:         "green",
+		From:          "Hipchat Cinema",
 	}
 
 	if _, ok := c.rooms[clientID]; ok {
@@ -178,11 +188,6 @@ func main() {
 	c := &BotContext{
 		baseURL: *baseURL,
 		rooms:   make(map[string]*RoomConfig),
-	}
-
-	_, err := cinema.ParseMovieFile("hackers")
-	if err != nil {
-		return
 	}
 
 	log.Printf("HipChat Cinema v%s - Listening on port %v", Version, *port)

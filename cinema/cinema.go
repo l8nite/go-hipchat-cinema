@@ -3,6 +3,7 @@ package cinema
 import (
 	"bufio"
 	"fmt"
+	"github.com/l8nite/hipchat-cinema/util"
 	"log"
 	"math"
 	"math/rand"
@@ -26,6 +27,7 @@ type Scene struct {
 }
 
 type Movie struct {
+	Title  string
 	scenes []Scene
 }
 
@@ -38,7 +40,9 @@ func ParseMovieFile(movieName string) (*Movie, error) {
 
 	defer file.Close()
 
-	movie := Movie{}
+	movie := Movie{
+		Title: util.MovieTitle(movieName),
+	}
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

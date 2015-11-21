@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 )
 
 // PrintDump prints dump of request, optionally writing it in the response
@@ -26,4 +27,18 @@ func DecodePostJSON(r *http.Request, logging bool) (map[string]interface{}, erro
 		log.Printf("Parsed body:%v", payLoad)
 	}
 	return payLoad, err
+}
+
+func MovieTitle(input string) string {
+	words := strings.Fields(input)
+	smallwords := " a an on the to "
+
+	for index, word := range words {
+		if strings.Contains(smallwords, " "+word+" ") && index > 0 {
+			words[index] = word
+		} else {
+			words[index] = strings.Title(word)
+		}
+	}
+	return strings.Join(words, " ")
 }
