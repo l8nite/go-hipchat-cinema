@@ -1,6 +1,6 @@
 {{define "atlassian-connect"}}{
     "key": "ninja.shaun.hipchat-cinema",
-    "name": "Hipchat Cinema",
+    "name": "",
     "description": "Watch movies in hipchat!",
     "vendor": {
         "name": "Shaun Guth",
