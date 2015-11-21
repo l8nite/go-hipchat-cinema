@@ -57,8 +57,10 @@ func (c *BotContext) install(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	clientID := authPayload["oauthId"].(string)
+
 	credentials := hipchat.ClientCredentials{
-		ClientID:     authPayload["oauthId"].(string),
+		ClientID:     clientID,
 		ClientSecret: authPayload["oauthSecret"].(string),
 	}
 
@@ -77,17 +79,42 @@ func (c *BotContext) install(w http.ResponseWriter, r *http.Request) {
 		hc:   tok.CreateClient(),
 	}
 
-	c.rooms[roomName] = rc
+	c.rooms[clientID] = rc
+
+	notifRq := &hipchat.NotificationRequest{
+		Message:       "Hipchat Cinema Bot Installed",
+		MessageFormat: "html",
+		Color:         "green",
+	}
+
+	_, err = c.rooms[clientID].hc.Room.Notification(c.rooms[clientID].name, notifRq)
+	if err != nil {
+		log.Printf("Failed to notify HipChat channel: %v\n", err)
+	}
 
 	util.PrintDump(w, r, false)
 	json.NewEncoder(w).Encode([]string{"OK"})
 }
 
-// DELETE /installable
+// DELETE /installable/token
 // Callback received when the user wants to uninstall the bot from their channel
 func (c *BotContext) uninstall(w http.ResponseWriter, r *http.Request) {
-	// TODO: parse out roomID, remove from configured rooms map
-	w.WriteHeader(204)
+	params := mux.Vars(r)
+	clientID := params["clientID"]
+
+	// return a 204 for every request to this API, regardless of what happens
+	defer func() {
+		w.WriteHeader(204)
+	}()
+
+	log.Printf("Received uninstall request for clientID: %s\n", clientID)
+
+	if _, ok := c.rooms[clientID]; !ok {
+		log.Print("Not a registered clientID")
+		return
+	}
+
+	delete(c.rooms, clientID)
 }
 
 // POST /hook
@@ -98,25 +125,25 @@ func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
 	payLoad, err := util.DecodePostJSON(r, true)
 
 	if err != nil {
-		log.Fatalf("Parsed auth data failed:%v\n", err)
+		log.Fatalf("Parsed auth data failed: %v\n", err)
 	}
 
-	roomID := strconv.Itoa(int((payLoad["item"].(map[string]interface{}))["room"].(map[string]interface{})["id"].(float64)))
+	clientID := payLoad["oauth_client_id"].(string)
 
-	log.Printf("Received play request to roomID: %s\n", roomID)
+	log.Printf("Received play request to clientID: %s\n", clientID)
 
-	if _, ok := c.rooms[roomID]; !ok {
-		log.Print("Room is not registered!")
+	if _, ok := c.rooms[clientID]; !ok {
+		log.Print("clientID is not registered!")
 		return
 	}
 
 	var message string
 
-	if c.rooms[roomID].isMoviePlaying {
+	if c.rooms[clientID].isMoviePlaying {
 		message = "Movie is already playing!"
 	} else {
 		message = "Enjoy the show!"
-		c.rooms[roomID].isMoviePlaying = true
+		c.rooms[clientID].isMoviePlaying = true
 	}
 
 	notifRq := &hipchat.NotificationRequest{
@@ -126,8 +153,8 @@ func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
 		From:          "God",
 	}
 
-	if _, ok := c.rooms[roomID]; ok {
-		_, err = c.rooms[roomID].hc.Room.Notification(roomID, notifRq)
+	if _, ok := c.rooms[clientID]; ok {
+		_, err = c.rooms[clientID].hc.Room.Notification(c.rooms[clientID].name, notifRq)
 		if err != nil {
 			log.Printf("Failed to notify HipChat channel:%v\n", err)
 		}
@@ -143,7 +170,7 @@ func (c *BotContext) routes() *mux.Router {
 	r.Path("/").Methods("GET").HandlerFunc(c.atlassianConnect)
 	r.Path("/atlassian-connect.json").Methods("GET").HandlerFunc(c.atlassianConnect)
 	r.Path("/installable").Methods("POST").HandlerFunc(c.install)
-	r.Path("/installable/{token}").Methods("DELETE").HandlerFunc(c.uninstall)
+	r.Path("/installable/{clientID}").Methods("DELETE").HandlerFunc(c.uninstall)
 	r.Path("/hook").Methods("POST").HandlerFunc(c.hook)
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./static")))
