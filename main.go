@@ -27,7 +27,7 @@ type RoomConfig struct {
 }
 
 // BotContext holds the base URL that the bot is running under
-// and a map of rooms that we've been installed into
+// and a map of client identifiers to rooms we're installed in
 type BotContext struct {
 	baseURL string
 	rooms   map[string]*RoomConfig
@@ -50,7 +50,7 @@ func (c *BotContext) atlassianConnect(w http.ResponseWriter, r *http.Request) {
 // POST /installable
 // Callback received when the bot is installed in a room
 func (c *BotContext) install(w http.ResponseWriter, r *http.Request) {
-	authPayload, err := util.DecodePostJSON(r)
+	authPayload, err := util.DecodePostJSON(r, false)
 
 	if err != nil {
 		log.Fatalf("Parse of installation auth data failed:%v\n", err)
@@ -58,6 +58,8 @@ func (c *BotContext) install(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientID := authPayload["oauthId"].(string)
+
+	log.Printf("Received install request for clientID: %s\n", clientID)
 
 	credentials := hipchat.ClientCredentials{
 		ClientID:     clientID,
@@ -80,17 +82,6 @@ func (c *BotContext) install(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.rooms[clientID] = rc
-
-	notifRq := &hipchat.NotificationRequest{
-		Message:       "Hipchat Cinema Bot Installed",
-		MessageFormat: "html",
-		Color:         "green",
-	}
-
-	_, err = c.rooms[clientID].hc.Room.Notification(c.rooms[clientID].name, notifRq)
-	if err != nil {
-		log.Printf("Failed to notify HipChat channel: %v\n", err)
-	}
 
 	json.NewEncoder(w).Encode([]string{"OK"})
 }
@@ -119,7 +110,7 @@ func (c *BotContext) uninstall(w http.ResponseWriter, r *http.Request) {
 // POST /hook
 // Callback received when the user types a command our bot recognizes
 func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
-	payLoad, err := util.DecodePostJSON(r)
+	payLoad, err := util.DecodePostJSON(r, false)
 
 	if err != nil {
 		log.Fatalf("Parsed auth data failed: %v\n", err)

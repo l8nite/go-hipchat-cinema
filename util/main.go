@@ -17,12 +17,12 @@ func PrintDump(w http.ResponseWriter, r *http.Request, write bool) {
 }
 
 // Decode into a map[string]interface{} the JSON in the POST Request
-func DecodePostJSON(r *http.Request, logging ...bool) (map[string]interface{}, error) {
+func DecodePostJSON(r *http.Request, logging bool) (map[string]interface{}, error) {
 	var err error
 	var payLoad map[string]interface{}
 	decoder := json.NewDecoder(r.Body)
 	err = decoder.Decode(&payLoad)
-	if logging[0] == true {
+	if logging {
 		log.Printf("Parsed body:%v", payLoad)
 	}
 	return payLoad, err
