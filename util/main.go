@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strings"
+	"unicode"
 )
 
 // PrintDump prints dump of request, optionally writing it in the response
@@ -30,7 +31,12 @@ func DecodePostJSON(r *http.Request, logging bool) (map[string]interface{}, erro
 }
 
 func MovieTitle(input string) string {
-	words := strings.Fields(input)
+	words := strings.FieldsFunc(input, func(r rune) bool {
+		if unicode.IsSpace(r) {
+			return true
+		}
+		return r == '_'
+	})
 	smallwords := " a an on the to "
 
 	for index, word := range words {

@@ -22,6 +22,14 @@ import (
 
 const Version = "0.0.0"
 
+var validMovieTitleFor = map[string]bool{
+	"back_to_the_future": true,
+	"bill_and_ted":       true,
+	"hackers":            true,
+	"the_holy_grail":     true,
+	"the_princess_bride": true,
+}
+
 // RoomConfig holds information to send messages to a specific room
 type RoomConfig struct {
 	token          *hipchat.OAuthAccessToken
@@ -145,7 +153,7 @@ func (c *BotContext) uninstall(w http.ResponseWriter, r *http.Request) {
 // POST /hook
 // Callback received when the user types a command our bot recognizes
 func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
-	payLoad, err := util.DecodePostJSON(r, false)
+	payLoad, err := util.DecodePostJSON(r, true)
 
 	if err != nil {
 		log.Fatalf("Parsed auth data failed: %v\n", err)
@@ -157,9 +165,10 @@ func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
 	message := msgOuter["message"].(string)
 
 	// must match regex from atlassian-connect.json
-	re, err := regexp.Compile(`^/(play|stop)(?:\s+(.+?)\s*)?`)
+	re, err := regexp.Compile(`^/(play|stop)(?:\s+(.+)\s*)?`)
 	res := re.FindStringSubmatch(message)
 	command := res[1]
+	movieTitle := res[2]
 
 	log.Printf("Received %s request to clientID: %s\n", command, clientID)
 
@@ -180,16 +189,27 @@ func (c *BotContext) hook(w http.ResponseWriter, r *http.Request) {
 		}
 	case "play":
 		if !room.isMoviePlaying {
-			// TODO: take movie name from request, compare to allowed movies
-			movie, err := cinema.ParseMovieFile("hackers")
-			if err != nil {
-				reply(room, "Error parsing movie file!")
-				log.Fatal(err)
-				return
-			}
+			_, isValidMovieTitle := validMovieTitleFor[movieTitle]
 
-			reply(room, fmt.Sprintf("Got it, now playing \"%s\"", movie.Title))
-			go room.playMovie(movie)
+			if !isValidMovieTitle {
+				allowedMovies := make([]string, len(validMovieTitleFor))
+				i := 0
+				for k := range validMovieTitleFor {
+					allowedMovies[i] = k
+					i++
+				}
+				reply(room, fmt.Sprintf("Allowed movies are %v", allowedMovies))
+			} else {
+				movie, err := cinema.ParseMovieFile(movieTitle)
+				if err != nil {
+					replyError(room, "Error parsing movie file!")
+					log.Fatal(err)
+					return
+				}
+
+				reply(room, fmt.Sprintf("Got it, now playing \"%s\"", movie.Title))
+				go room.playMovie(movie)
+			}
 		} else {
 			// FEATURE: allow movies to be queued
 			// FEATURE: remember requestor, tag them when movie starts
@@ -205,6 +225,17 @@ func reply(r *RoomConfig, message string) {
 		Message:       message,
 		MessageFormat: "html",
 		Color:         "green",
+		From:          "Hipchat Cinema",
+	}
+
+	r.hc.Room.Notification(r.name, notifRq)
+}
+
+func replyError(r *RoomConfig, message string) {
+	notifRq := &hipchat.NotificationRequest{
+		Message:       message,
+		MessageFormat: "html",
+		Color:         "red",
 		From:          "Hipchat Cinema",
 	}
 
